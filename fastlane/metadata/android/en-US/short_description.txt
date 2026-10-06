@@ -1,0 +1,1 @@
+Simple PDF viewer for opening PDFs from other Android apps

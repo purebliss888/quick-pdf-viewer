@@ -1,0 +1,21 @@
+Quick PDF Viewer
+Copyright 2026 Quick PDF Viewer Contributors
+
+Licensed under the Apache License, Version 2.0.
+See the LICENSE file in the root directory for the full license text.
+
+----------------
+
+THIRD-PARTY NOTICES
+
+This application uses AndroidX and Jetpack libraries maintained by the Android Open Source Project,
+including AndroidX PDF, AndroidX Core KTX, AppCompat, Activity Compose, Jetpack Compose UI, Material 3,
+and Material Icons Extended. These components are licensed under the Apache License, Version 2.0.
+
+Project source:
+https://android.googlesource.com/platform/frameworks/support/
+
+Apache License 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+Transitive dependencies retain their own upstream copyright and license notices.

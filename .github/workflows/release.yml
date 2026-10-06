@@ -1,0 +1,136 @@
+name: Build and Release APK
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build signed release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install Android SDK components
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
+          yes | sdkmanager --licenses || true
+
+      - name: Make Gradle executable
+        run: chmod +x ./gradlew
+
+      - name: Decode signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build unsigned release APK
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Locate Android build tools
+        id: build-tools
+        run: |
+          BUILD_TOOLS_DIR="$ANDROID_HOME/build-tools/36.0.0"
+          echo "dir=$BUILD_TOOLS_DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Sign APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -e
+      
+          BUILD_TOOLS="${{ steps.build-tools.outputs.dir }}"
+      
+          UNSIGNED_APK=$(find app/build/outputs/apk/release \
+            -maxdepth 1 \
+            -type f \
+            -name "*-unsigned.apk" \
+            | head -n 1)
+      
+          if [ -z "$UNSIGNED_APK" ]; then
+            echo "ERROR: No release APK found"
+            find app/build/outputs -type f -print
+            exit 1
+          fi
+      
+          echo "Unsigned APK: $UNSIGNED_APK"
+      
+          ALIGNED_APK="$RUNNER_TEMP/app-release-aligned.apk"
+          SIGNED_APK="app/build/outputs/apk/release/QuickPDFViewer.apk"
+      
+          echo "Aligning APK..."
+      
+          "$BUILD_TOOLS/zipalign" \
+            -P 16 \
+            -f \
+            4 \
+            "$UNSIGNED_APK" \
+            "$ALIGNED_APK"
+      
+          echo "Signing APK..."
+      
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$RUNNER_TEMP/release.keystore" \
+            --ks-type PKCS12 \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "$SIGNED_APK" \
+            "$ALIGNED_APK"
+      
+          echo "Verifying APK signature..."
+      
+          "$BUILD_TOOLS/apksigner" verify \
+            --verbose \
+            --print-certs \
+            "$SIGNED_APK"
+      
+          echo "Signed APK:"
+          ls -lh "$SIGNED_APK"
+
+      - name: Show APK information
+        run: |
+          echo "APK:"
+          ls -lh app/build/outputs/apk/release/QuickPDFViewer.apk
+
+          echo
+          echo "SHA-256:"
+          sha256sum app/build/outputs/apk/release/QuickPDFViewer.apk
+
+          echo
+          echo "Signing certificate:"
+          "${{ steps.build-tools.outputs.dir }}/apksigner" verify \
+            --print-certs \
+            app/build/outputs/apk/release/QuickPDFViewer.apk
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+
+          gh release create "$TAG" \
+            app/build/outputs/apk/release/QuickPDFViewer.apk \
+            --title "Quick PDF Viewer $TAG" \
+            --generate-notes

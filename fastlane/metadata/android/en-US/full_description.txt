@@ -1,0 +1,11 @@
+    Quick PDF Viewer is Android PDF viewer designed to view PDF files. It uses AndroidX PDF and Jetpack Compose for a simple, modern reading experience.
+
+• Open PDF files from other Android apps
+• Zoom, pan, scroll, and page navigation
+• Support for password-protected PDFs
+• Search for text with match highlighting and navigation
+• PDF internal and external link handling
+• Share the currently opened PDF
+• Go to a specific page
+• Automatic light/dark system theme support for UI elements
+• Lightweight and privacy-friendly, with no ads, analytics, Firebase, or Google Play Services
